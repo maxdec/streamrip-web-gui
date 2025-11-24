@@ -108,7 +108,25 @@ docker-compose up -d --build
 
 4. Access the web interface at `http://localhost:5002`
 
-### Option 3: Manual Installation
+### Option 3: Local Development
+
+Using [uv](https://github.com/astral-sh/uv) (recommended - much faster):
+
+```bash
+# Install uv if you don't have it
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Quick setup
+./setup-dev.sh
+
+# Or manually:
+uv venv
+source .venv/bin/activate
+uv pip install -e .
+python app.py
+```
+
+Using traditional pip:
 
 1. Clone this repository:
 ```bash
@@ -116,12 +134,7 @@ git clone https://github.com/anoddname/streamrip-web.git
 cd streamrip-web
 ```
 
-2. Install dependencies:
-```bash
-pip install flask gunicorn requests
-```
-
-3. Run the application:
+2. Run the application:
 ```bash
 python app.py
 ```
