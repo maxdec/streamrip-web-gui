@@ -1,28 +1,39 @@
-import logging
-from flask import Flask, render_template, request, jsonify, Response, stream_with_context
-import subprocess
-import os
-import threading
-import queue
-import time
-import tempfile
-import requests
-import shutil
-import re
+import asyncio
 import json
+import logging
+import os
+import queue
+import re
+import shutil
+import subprocess
+import threading
+import time
 
-#new logging config
+import requests
+from flask import (
+    Flask,
+    Response,
+    jsonify,
+    render_template,
+    request,
+    stream_with_context,
+)
+
+# Streamrip library imports
+from streamrip.client import DeezerClient, QobuzClient, SoundcloudClient, TidalClient
+from streamrip.config import Config
+
+# new logging config
 logging.basicConfig(
-    level=logging.DEBUG,  
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-STREAMRIP_CONFIG = os.environ.get('STREAMRIP_CONFIG', '/config/config.toml') 
-DOWNLOAD_DIR = os.environ.get('DOWNLOAD_DIR', '/music') 
-MAX_CONCURRENT_DOWNLOADS = int(os.environ.get('MAX_CONCURRENT_DOWNLOADS', '2')) 
+STREAMRIP_CONFIG = os.environ.get("STREAMRIP_CONFIG", "/config/config.toml")
+DOWNLOAD_DIR = os.environ.get("DOWNLOAD_DIR", "/music")
+MAX_CONCURRENT_DOWNLOADS = int(os.environ.get("MAX_CONCURRENT_DOWNLOADS", "2"))
 
 download_queue = queue.Queue()
 active_downloads = {}
@@ -30,138 +41,199 @@ download_history = []
 sse_clients = []
 album_art_cache = {}
 cache_lock = threading.Lock()
-         
+
+# Initialize streamrip config and clients
+streamrip_config = None
+streamrip_clients = {}
+
+
+def init_streamrip():
+    """Initialize streamrip config and clients"""
+    global streamrip_config, streamrip_clients
+
+    try:
+        if os.path.exists(STREAMRIP_CONFIG):
+            streamrip_config = Config(STREAMRIP_CONFIG)
+            logger.info(f"Loaded streamrip config from {STREAMRIP_CONFIG}")
+        else:
+            streamrip_config = Config.defaults()
+            logger.warning(f"Config not found at {STREAMRIP_CONFIG}, using defaults")
+
+        # Initialize clients (will login on first use)
+        # Clients expect Config object, which has .session attribute internally
+        streamrip_clients = {
+            "qobuz": QobuzClient(streamrip_config),
+            "deezer": DeezerClient(streamrip_config),
+            "tidal": TidalClient(streamrip_config),
+            "soundcloud": SoundcloudClient(streamrip_config),
+        }
+        logger.info("Streamrip clients initialized")
+    except Exception as e:
+        logger.error(f"Failed to initialize streamrip: {e}")
+        streamrip_config = Config.defaults()
+        streamrip_clients = {}
+
+
+# Initialize on startup
+init_streamrip()
+
+
+async def get_client(source):
+    """Get and login to a streamrip client"""
+    client = streamrip_clients.get(source)
+    if not client:
+        raise ValueError(f"Client not available for source: {source}")
+
+    if not client.logged_in:
+        try:
+            await client.login()
+            logger.info(f"Logged in to {source}")
+        except Exception as e:
+            logger.error(f"Failed to login to {source}: {e}")
+            raise
+    return client
+
+
 class DownloadWorker(threading.Thread):
     def __init__(self):
         super().__init__(daemon=True)
         self.current_process = None
-        
+
     def run(self):
         while True:
             task = download_queue.get()
             if task is None:
                 break
-                
-            task_id = task['id']
-            url = task['url']
-            quality = task.get('quality', 3)
-            metadata = task.get('metadata', {})
-            
+
+            task_id = task["id"]
+            url = task["url"]
+            quality = task.get("quality", 3)
+            metadata = task.get("metadata", {})
+
             active_downloads[task_id] = {
-                'status': 'downloading',
-                'url': url,
-                'metadata': metadata,
-                'started': time.time()
+                "status": "downloading",
+                "url": url,
+                "metadata": metadata,
+                "started": time.time(),
             }
-            
-            broadcast_sse({
-                'type': 'download_started',
-                'id': task_id,
-                'metadata': metadata,
-                'status': 'downloading'
-            })
-            
+
+            broadcast_sse(
+                {
+                    "type": "download_started",
+                    "id": task_id,
+                    "metadata": metadata,
+                    "status": "downloading",
+                }
+            )
+
             output_lines = []
-            process = None 
-            
+            process = None
+
             try:
-                cmd = ['rip']
+                cmd = ["rip"]
                 if os.path.exists(STREAMRIP_CONFIG):
-                    cmd.extend(['--config-path', STREAMRIP_CONFIG])
-                cmd.extend(['-f', DOWNLOAD_DIR])
-                cmd.extend(['-q', str(quality)])
-                cmd.extend(['url', url])
-                
+                    cmd.extend(["--config-path", STREAMRIP_CONFIG])
+                cmd.extend(["-q", str(quality)])
+                cmd.extend(["url", url])
+
                 process = subprocess.Popen(
                     cmd,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     text=True,
                     bufsize=1,
-                    universal_newlines=True
+                    universal_newlines=True,
                 )
-                
+
                 self.current_process = process
-                
+
                 for line in process.stdout:
                     line = line.strip()
                     if line:
                         output_lines.append(line)
-                        if len(output_lines) % 10 == 0:  
-                            broadcast_sse({
-                                'type': 'download_progress',
-                                'id': task_id,
-                                'output': "\n".join(output_lines[-5:]),
-                                'progress': {'raw_output': True}
-                            })
-                
-                process.wait()
-                
-                broadcast_sse({
-                    'type': 'download_completed',
-                    'id': task_id,
-                    'status': 'completed' if process.returncode == 0 else 'failed',
-                    'metadata': metadata,
-                    'output': "\n".join(output_lines)
+                        if len(output_lines) % 10 == 0:
+                            broadcast_sse(
+                                {
+                                    "type": "download_progress",
+                                    "id": task_id,
+                                    "output": "\n".join(output_lines[-5:]),
+                                    "progress": {"raw_output": True},
+                                }
+                            )
 
-                })
-                            
+                process.wait()
+
+                broadcast_sse(
+                    {
+                        "type": "download_completed",
+                        "id": task_id,
+                        "status": "completed" if process.returncode == 0 else "failed",
+                        "metadata": metadata,
+                        "output": "\n".join(output_lines),
+                    }
+                )
+
             except Exception as e:
-                broadcast_sse({
-                    'type': 'download_error',
-                    'id': task_id,
-                    'error': str(e),
-                    'output': "\n".join(output_lines) if output_lines else str(e)
-                })
-            
+                broadcast_sse(
+                    {
+                        "type": "download_error",
+                        "id": task_id,
+                        "error": str(e),
+                        "output": "\n".join(output_lines) if output_lines else str(e),
+                    }
+                )
+
             finally:
                 self.current_process = None
                 if task_id in active_downloads:
                     del active_downloads[task_id]
                 if process and process.poll() is None:
                     process.terminate()
-            
+
             download_queue.task_done()
+
 
 def broadcast_sse(data):
     message = f"data: {json.dumps(data)}\n\n"
     dead_clients = []
-    
+
     for client in sse_clients:
         try:
             client.put(message)
         except:
             dead_clients.append(client)
-    
+
     for client in dead_clients:
         sse_clients.remove(client)
 
-@app.route('/api/events')
+
+@app.route("/api/events")
 def sse_events():
     def generate():
         q = queue.Queue()
         sse_clients.append(q)
-        
+
         try:
             yield f"data: {json.dumps({'type': 'connected'})}\n\n"
-            
+
             while True:
                 try:
                     msg = q.get(timeout=30)
                     yield msg
                 except queue.Empty:
-                    continue #previous heartbeat check
+                    continue  # previous heartbeat check
         finally:
             sse_clients.remove(q)
-    
+
     return Response(
         stream_with_context(generate()),
-        mimetype='text/event-stream',
+        mimetype="text/event-stream",
         headers={
-            'Cache-Control': 'no-cache',
-            'X-Accel-Buffering': 'no'  #disable nginx buffering
-        }
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # disable nginx buffering
+        },
     )
+
 
 workers = []
 for _ in range(MAX_CONCURRENT_DOWNLOADS):
@@ -169,387 +241,405 @@ for _ in range(MAX_CONCURRENT_DOWNLOADS):
     worker.start()
     workers.append(worker)
 
-@app.route('/')
-def index():
-    return render_template('index.html')
 
-@app.route('/api/download', methods=['POST'])
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+
+@app.route("/api/download", methods=["POST"])
 def start_download():
     data = request.json
-    url = data.get('url')
-    quality = data.get('quality', 3)
-    
+    url = data.get("url")
+    quality = data.get("quality", 3)
+
     if not url:
-        return jsonify({'error': 'URL is required'}), 400
-    
-    #Validate URL (basic check)
-    #youtube-dl for later
-    valid_services = ['spotify.com', 'deezer.com', 'tidal.com', 'qobuz.com', 'soundcloud.com', 'youtube.com']
+        return jsonify({"error": "URL is required"}), 400
+
+    # Validate URL (basic check)
+    # youtube-dl for later
+    valid_services = [
+        "spotify.com",
+        "deezer.com",
+        "tidal.com",
+        "qobuz.com",
+        "soundcloud.com",
+        "youtube.com",
+    ]
     if not any(service in url.lower() for service in valid_services):
-        return jsonify({'error': 'Unsupported service URL'}), 400
-    
+        return jsonify({"error": "Unsupported service URL"}), 400
+
     metadata = extract_metadata_from_url(url)
-    
+
     task_id = f"dl_{int(time.time() * 1000)}"
-    task = {
-        'id': task_id,
-        'url': url,
-        'quality': quality,
-        'metadata': metadata 
-    }
-    
+    task = {"id": task_id, "url": url, "quality": quality, "metadata": metadata}
+
     download_queue.put(task)
-    
-    return jsonify({'task_id': task_id, 'status': 'queued'})
+
+    return jsonify({"task_id": task_id, "status": "queued"})
 
 
-@app.route('/api/status')
+@app.route("/api/status")
 def get_all_status():
-    return jsonify({
-        'active': active_downloads,
-        'history': download_history[-20:],
-        'queue_size': download_queue.qsize()
-    })
+    return jsonify(
+        {
+            "active": active_downloads,
+            "history": download_history[-20:],
+            "queue_size": download_queue.qsize(),
+        }
+    )
 
-    
-@app.route('/api/config', methods=['GET', 'POST'])
+
+@app.route("/api/config", methods=["GET", "POST"])
 def config():
-    if request.method == 'GET':
+    if request.method == "GET":
         if os.path.exists(STREAMRIP_CONFIG):
-            with open(STREAMRIP_CONFIG, 'r') as f:
-                return jsonify({'config': f.read()})
-        return jsonify({'config': ''})
-    
-    elif request.method == 'POST':
+            with open(STREAMRIP_CONFIG, "r") as f:
+                return jsonify({"config": f.read()})
+        return jsonify({"config": ""})
+
+    elif request.method == "POST":
         data = request.json
-        config_content = data.get('config', '')
-        
+        config_content = data.get("config", "")
+
         try:
             if os.path.exists(STREAMRIP_CONFIG):
                 shutil.copy2(STREAMRIP_CONFIG, f"{STREAMRIP_CONFIG}.bak")
-            
-            os.makedirs(os.path.dirname(STREAMRIP_CONFIG), exist_ok=True)
-            with open(STREAMRIP_CONFIG, 'w') as f:
-                f.write(config_content)
-            
-            return jsonify({'status': 'success'})
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-            
 
-@app.route('/api/search', methods=['POST'])
-def search_music():
-    data = request.json
-    query = data.get('query')
-    search_type = data.get('type', 'album')
-    source = data.get('source', 'qobuz')
-    
-    # new logging
+            os.makedirs(os.path.dirname(STREAMRIP_CONFIG), exist_ok=True)
+            with open(STREAMRIP_CONFIG, "w") as f:
+                f.write(config_content)
+
+            return jsonify({"status": "success"})
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+
+async def search_music_async(query, search_type, source):
+    """Async function to search using streamrip library"""
     logger.info("=" * 60)
-    logger.info("SEARCH REQUEST RECEIVED")
+    logger.info("SEARCH REQUEST (using streamrip library)")
     logger.info(f"Query: '{query}'")
     logger.info(f"Type: {search_type}")
     logger.info(f"Source: {source}")
     logger.info("=" * 60)
-    
+
+    try:
+        # Get the client for this source
+        client = await get_client(source)
+
+        # Perform search using the client - returns list of page dicts
+        pages = await client.search(search_type, query, limit=100)
+
+        logger.info(f"Search returned {len(pages)} pages")
+
+        # Extract items from pages
+        # Page structure: {"albums": {"items": [...], "total": 123}, ...}
+        # The key is the pluralized media type
+        items_key = f"{search_type}s"
+        search_results = []
+        for page in pages:
+            items = page.get(items_key, {}).get("items", [])
+            search_results.extend(items)
+
+        logger.info(f"Extracted {len(search_results)} items from pages")
+
+        # Debug: log first result to see structure
+        if search_results:
+            logger.debug(f"First result structure: {search_results[0]}")
+            logger.debug(
+                f"First result keys: {search_results[0].keys() if isinstance(search_results[0], dict) else 'Not a dict'}"
+            )
+            # Log all fields to see what's available for year/date
+            if isinstance(search_results[0], dict):
+                logger.debug(f"All fields in first result:")
+                for key, value in search_results[0].items():
+                    logger.debug(f"  {key}: {value}")
+
+        results = []
+        for idx, item in enumerate(search_results):
+            # Extract metadata based on type
+            item_id = str(item.get("id", ""))
+
+            # Build result with more fields available from library
+            if search_type == "album":
+                artist = (
+                    item.get("artist", {}).get("name", "")
+                    if isinstance(item.get("artist"), dict)
+                    else item.get("artist", "")
+                )
+                title = item.get("title", "")
+                desc = f"{title} by {artist}" if artist else title
+
+                # Try multiple fields for year
+                year = (
+                    item.get("year", "")
+                    or item.get("released_at", "")
+                    or item.get("release_date_original", "")
+                    or item.get("release_date", "")
+                    or ""
+                )
+                # If year is a timestamp, extract just the year
+                if year and isinstance(year, (int, float)):
+                    from datetime import datetime
+
+                    year = datetime.fromtimestamp(year).year
+                elif year and isinstance(year, str) and len(year) >= 4:
+                    year = year[:4]  # Extract first 4 chars (YYYY)
+
+                result_item = {
+                    "id": item_id,
+                    "service": source,
+                    "type": "album",
+                    "artist": artist,
+                    "title": title,
+                    "desc": desc,
+                    "url": construct_url(source, "album", item_id),
+                    "album_art": item.get("cover", ""),
+                    "year": str(year) if year else "",
+                    "label": item.get("label", {}).get("name", "")
+                    if isinstance(item.get("label"), dict)
+                    else item.get("label", ""),
+                    "track_count": item.get(
+                        "tracks_count", item.get("track_count", "")
+                    ),
+                }
+            elif search_type == "track":
+                artist = (
+                    item.get("artist", {}).get("name", "")
+                    if isinstance(item.get("artist"), dict)
+                    else item.get("artist", "")
+                )
+                title = item.get("title", "")
+                album = (
+                    item.get("album", {}).get("title", "")
+                    if isinstance(item.get("album"), dict)
+                    else ""
+                )
+                desc = f"{title} by {artist}" if artist else title
+
+                result_item = {
+                    "id": item_id,
+                    "service": source,
+                    "type": "track",
+                    "artist": artist,
+                    "title": title,
+                    "album": album,
+                    "desc": desc,
+                    "url": construct_url(source, "track", item_id),
+                    "album_art": item.get("cover", ""),
+                    "duration": item.get("duration", ""),
+                }
+            elif search_type == "artist":
+                name = item.get("name", "")
+
+                result_item = {
+                    "id": item_id,
+                    "service": source,
+                    "type": "artist",
+                    "artist": name,
+                    "title": "",
+                    "desc": name,
+                    "url": construct_url(source, "artist", item_id),
+                    "album_art": item.get("picture", item.get("image", "")),
+                }
+            elif search_type == "playlist":
+                name = item.get("name", item.get("title", ""))
+                creator = (
+                    item.get("creator", {}).get("name", "")
+                    if isinstance(item.get("creator"), dict)
+                    else ""
+                )
+                desc = f"{name} by {creator}" if creator else name
+
+                result_item = {
+                    "id": item_id,
+                    "service": source,
+                    "type": "playlist",
+                    "artist": creator,
+                    "title": name,
+                    "desc": desc,
+                    "url": construct_url(source, "playlist", item_id),
+                    "album_art": item.get("image", ""),
+                    "track_count": item.get("tracks_count", ""),
+                }
+            else:
+                # Fallback for unknown types
+                result_item = {
+                    "id": item_id,
+                    "service": source,
+                    "type": search_type,
+                    "artist": "",
+                    "title": str(item),
+                    "desc": str(item),
+                    "url": construct_url(source, search_type, item_id),
+                    "album_art": "",
+                }
+
+            results.append(result_item)
+
+            if idx < 3:  # Log first 3 results
+                logger.debug(f"Result {idx + 1}: {result_item}")
+
+        logger.info(f"Returning {len(results)} results")
+        return results
+
+    except Exception as e:
+        logger.exception(f"Search error: {e}")
+        raise
+
+
+@app.route("/api/search", methods=["POST"])
+def search_music():
+    data = request.json
+    query = data.get("query")
+    search_type = data.get("type", "album")
+    source = data.get("source", "qobuz")
+
     if not query:
         logger.warning("No query provided")
-        return jsonify({'error': 'Query required'}), 400
-    
-    if source == 'soundcloud' and search_type in ['album', 'artist']:
+        return jsonify({"error": "Query required"}), 400
+
+    if source == "soundcloud" and search_type in ["album", "artist"]:
         logger.debug(f"SoundCloud doesn't support {search_type} search")
-        return jsonify({
-            'results': [],
-            'query': query,
-            'source': source,
-            'total_count': 0,
-            'message': f'SoundCloud does not support {search_type} searches. Try searching for tracks or playlists instead.'
-        })
-    
+        return jsonify(
+            {
+                "results": [],
+                "query": query,
+                "source": source,
+                "total_count": 0,
+                "message": f"SoundCloud does not support {search_type} searches. Try searching for tracks or playlists instead.",
+            }
+        )
+
     try:
-        with tempfile.NamedTemporaryFile(mode='w+', suffix='.txt', delete=False) as tmp_file:
-            tmp_path = tmp_file.name
-        
-        logger.info(f"Created temp file: {tmp_path}")
-        
-        cmd = ['rip']
-        if os.path.exists(STREAMRIP_CONFIG):
-            cmd.extend(['--config-path', STREAMRIP_CONFIG])
-            logger.info(f"Using config file: {STREAMRIP_CONFIG}")
-        else:
-            logger.warning(f"Config file not found at: {STREAMRIP_CONFIG}")
-        
-        cmd.extend(['search', '--output-file', tmp_path])
-        cmd.extend([source, search_type, query])
-        
-        logger.info(f"Executing command: {' '.join(cmd)}")
-        
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-        
-        logger.info(f"Command completed with return code: {result.returncode}")
-        
-        if result.stdout:
-            logger.info(f"STDOUT ({len(result.stdout)} chars total):\n{result.stdout}")
-        else:
-            logger.info("STDOUT: (empty)")
-            
-        if result.stderr:
-            logger.warning(f"STDERR ({len(result.stderr)} chars total):\n{result.stderr}")
-        else:
-            logger.info("STDERR: (empty)")
-        
-        if result.returncode != 0:
-            logger.error(f"Streamrip command failed with return code {result.returncode}")
-            error_msg = "Streamrip search failed"
-            
-            if result.stdout:
-                if 'InvalidAppSecretError' in result.stdout:
-                    error_msg = "Invalid Qobuz app secrets. Update your config with valid secrets or run 'rip config --update' in the container."
-                elif 'Traceback' in result.stdout:
-                    error_msg = "Streamrip encountered an error (check logs for full traceback)"
-                elif 'authentication' in result.stdout.lower():
-                    error_msg = "Authentication failed - check your Qobuz credentials in config"
-                elif 'credentials' in result.stdout.lower():
-                    error_msg = "Invalid credentials - check your Qobuz configuration"
-                
-            return jsonify({
-                'error': error_msg,
-                'debug_info': {
-                    'return_code': result.returncode,
-                    'stdout_preview': result.stdout if result.stdout else '',  # Send full output
-                    'stderr_preview': result.stderr if result.stderr else '',
-                    'command': ' '.join(cmd)
-                }
-            }), 500
-        
-        # Check if temp file exists and has content
-        if os.path.exists(tmp_path):
-            file_size = os.path.getsize(tmp_path)
-            logger.info(f"Temp file exists, size: {file_size} bytes")
-        else:
-            logger.error(f"Temp file does not exist: {tmp_path}")
-            
-        results = []
-        
-        try:
-            with open(tmp_path, 'r') as f:
-                content = f.read()
-                logger.info(f"File content length: {len(content)} characters")
-                logger.debug(f"File content (first 500 chars):\n{content[:500]}")
-                
-                if not content or content.strip() == '':
-                    logger.warning("Temp file is empty!")
-                    return jsonify({
-                        'results': [],
-                        'query': query,
-                        'source': source,
-                        'total_count': 0,
-                        'message': 'No results found. The search returned empty results.',
-                        'debug_info': {
-                            'return_code': result.returncode,
-                            'stdout': result.stdout[:200] if result.stdout else '',
-                            'stderr': result.stderr[:200] if result.stderr else ''
-                        }
-                    })
-                
-                try:
-                    search_data = json.loads(content)
-                    logger.info(f"Successfully parsed JSON with {len(search_data)} items")
-                    
-                    for idx, item in enumerate(search_data):
-                        item_id = item.get('id', '')
-                        media_type = item.get('media_type', search_type)  
-                        url = construct_url(item.get('source', source), media_type, item_id)
-                        
-                        desc = item.get('desc', '')
-                        artist = ''
-                        title = desc
-                        
-                        if ' by ' in desc:
-                            parts = desc.rsplit(' by ', 1)
-                            title = parts[0]
-                            artist = parts[1]
-                        
-                        result_item = {
-                            'id': item_id,
-                            'service': item.get('source', source),
-                            'type': media_type, 
-                            'artist': artist if artist else desc,
-                            'title': title if artist else '',
-                            'desc': desc,
-                            'url': url,
-                            'album_art': ''
-                        }
-                        results.append(result_item)
-                        
-                        if idx < 3:  # Log first 3 results
-                            logger.debug(f"Result {idx + 1}: {result_item}")
-                            
-                except json.JSONDecodeError as e:
-                    logger.error("=" * 60)
-                    logger.error("JSON PARSE ERROR")
-                    logger.error(f"Error: {e}")
-                    logger.error(f"Error position: line {e.lineno}, column {e.colno}")
-                    logger.error(f"Content length: {len(content)} characters")
-                    logger.error(f"Content type: {type(content)}")
-                    logger.error(f"Content repr: {repr(content[:200])}")
-                    logger.error("-" * 60)
-                    logger.error(f"FULL CONTENT (all {len(content)} chars):")
-                    logger.error(content)
-                    logger.error("=" * 60)
-                    
-                    # Also log what streamrip actually output
-                    logger.error("STREAMRIP STDOUT:")
-                    logger.error(result.stdout if result.stdout else "(empty)")
-                    logger.error("-" * 60)
-                    logger.error("STREAMRIP STDERR:")
-                    logger.error(result.stderr if result.stderr else "(empty)")
-                    logger.error("=" * 60)
-                    
-                    return jsonify({
-                        'error': 'Failed to parse search results',
-                        'debug_info': {
-                            'parse_error': str(e),
-                            'content_length': len(content),
-                            'content_preview': content[:500],
-                            'full_content': content,  # Include full content in response
-                            'stdout': result.stdout,
-                            'stderr': result.stderr
-                        }
-                    }), 500
-                    
-        except FileNotFoundError:
-            logger.error(f"Temp file not found: {tmp_path}")
-            return jsonify({
-                'error': 'Search output file not found',
-                'debug_info': {
-                    'temp_path': tmp_path,
-                    'return_code': result.returncode
-                }
-            }), 500
-            
-        finally:
-            if os.path.exists(tmp_path):
-                try:
-                    os.remove(tmp_path)
-                    logger.debug(f"Removed temp file: {tmp_path}")
-                except Exception as e:
-                    logger.warning(f"Failed to remove temp file: {e}")
-        
-        logger.info(f"Returning {len(results)} results")
-        
-        return jsonify({
-            'results': results,
-            'query': query,
-            'source': source,
-            'total_count': len(results)
-        })
-        
-    except subprocess.TimeoutExpired:
-        logger.error("Search command timed out after 30 seconds")
-        return jsonify({'error': 'Search timed out'}), 500
+        # Run the async search function
+        results = asyncio.run(search_music_async(query, search_type, source))
+
+        return jsonify(
+            {
+                "results": results,
+                "query": query,
+                "source": source,
+                "total_count": len(results),
+            }
+        )
+
     except Exception as e:
         logger.exception(f"Unexpected error during search: {e}")
-        return jsonify({
-            'error': str(e),
-            'debug_info': {
-                'exception_type': type(e).__name__
-            }
-        }), 500
+        error_msg = str(e)
 
-@app.route('/api/album-art', methods=['GET'])
+        # Provide helpful error messages
+        if "login" in error_msg.lower() or "auth" in error_msg.lower():
+            error_msg = f"Authentication failed for {source}. Check your credentials in the config."
+        elif "secret" in error_msg.lower():
+            error_msg = "Invalid app secrets. Update your config."
+
+        return jsonify(
+            {"error": error_msg, "debug_info": {"exception_type": type(e).__name__}}
+        ), 500
+
+
+@app.route("/api/album-art", methods=["GET"])
 def get_album_art():
-    source = request.args.get('source')
-    media_type = request.args.get('type')
-    item_id = request.args.get('id')
-    
+    source = request.args.get("source")
+    media_type = request.args.get("type")
+    item_id = request.args.get("id")
+
     if not all([source, media_type, item_id]):
-        return jsonify({'error': 'Missing parameters'}), 400
-    
-    #Todo: handle SoundCloud special case and get correct albums if possible
-    if source == 'soundcloud':
-        if '|' in item_id:
-            item_id = item_id.split('|')[0]
-        elif 'soundcloud:tracks:' in item_id:
-            match = re.search(r'soundcloud:tracks:(\d+)', item_id)
+        return jsonify({"error": "Missing parameters"}), 400
+
+    # Todo: handle SoundCloud special case and get correct albums if possible
+    if source == "soundcloud":
+        if "|" in item_id:
+            item_id = item_id.split("|")[0]
+        elif "soundcloud:tracks:" in item_id:
+            match = re.search(r"soundcloud:tracks:(\d+)", item_id)
             if match:
                 item_id = match.group(1)
-    
+
     cache_key = f"{source}_{media_type}_{item_id}"
     if cache_key in album_art_cache:
-        return jsonify({'album_art': album_art_cache[cache_key]})
-    
+        return jsonify({"album_art": album_art_cache[cache_key]})
+
     try:
-        if source == 'qobuz':
+        if source == "qobuz":
             app_id = get_qobuz_app_id()
             album_art = fetch_single_album_art(item_id, media_type, app_id)
             if album_art:
                 album_art_cache[cache_key] = album_art
-                return jsonify({'album_art': album_art})
-            return jsonify({'album_art': ''})
-        
-        elif source == 'tidal':
-            if media_type == 'artist':
+                return jsonify({"album_art": album_art})
+            return jsonify({"album_art": ""})
+
+        elif source == "tidal":
+            if media_type == "artist":
                 album_art = f"https://resources.tidal.com/images/{item_id}/750x750.jpg"
             else:
                 album_art = f"https://resources.tidal.com/images/{item_id}/320x320.jpg"
-                
+
             if album_art:
                 album_art_cache[cache_key] = album_art
-                return jsonify({'album_art': album_art})
-            return jsonify({'album_art': ''})
-        
-        elif source == 'deezer':
-            if media_type == 'artist':
+                return jsonify({"album_art": album_art})
+            return jsonify({"album_art": ""})
+
+        elif source == "deezer":
+            if media_type == "artist":
                 try:
-                    response = requests.get(f"https://api.deezer.com/artist/{item_id}", timeout=3)
+                    response = requests.get(
+                        f"https://api.deezer.com/artist/{item_id}", timeout=3
+                    )
                     if response.status_code == 200:
                         data = response.json()
-                        album_art = data.get('picture_medium', data.get('picture', ''))
+                        album_art = data.get("picture_medium", data.get("picture", ""))
                         if album_art:
                             album_art_cache[cache_key] = album_art
-                            return jsonify({'album_art': album_art})
+                            return jsonify({"album_art": album_art})
                 except:
                     pass
-                return jsonify({'album_art': ''})
+                return jsonify({"album_art": ""})
             else:
                 album_art = f"https://api.deezer.com/{media_type}/{item_id}/image"
                 if album_art:
                     album_art_cache[cache_key] = album_art
-                    return jsonify({'album_art': album_art})
-                return jsonify({'album_art': ''})
-        
-        elif source == 'soundcloud':
-            #SoundCloud doesn't provide easy access to artwork
-            #Just return empty and let the frontend handle placeholders
-            return jsonify({'album_art': ''})
-        
-        #Default return for unknown sources
-        return jsonify({'album_art': ''})
-        
-    except Exception as e:
-        logger.error(f"Error fetching album art for {source}/{media_type}/{item_id}: {e}")
-        return jsonify({'album_art': ''})
+                    return jsonify({"album_art": album_art})
+                return jsonify({"album_art": ""})
 
-@app.route('/api/browse')
+        elif source == "soundcloud":
+            # SoundCloud doesn't provide easy access to artwork
+            # Just return empty and let the frontend handle placeholders
+            return jsonify({"album_art": ""})
+
+        # Default return for unknown sources
+        return jsonify({"album_art": ""})
+
+    except Exception as e:
+        logger.error(
+            f"Error fetching album art for {source}/{media_type}/{item_id}: {e}"
+        )
+        return jsonify({"album_art": ""})
+
+
+@app.route("/api/browse")
 def browse_downloads():
     try:
         files = []
         for root, dirs, filenames in os.walk(DOWNLOAD_DIR):
             for filename in filenames:
-                if filename.endswith(('.mp3', '.flac', '.m4a', '.opus')):
+                if filename.endswith((".mp3", ".flac", ".m4a", ".opus")):
                     filepath = os.path.join(root, filename)
                     rel_path = os.path.relpath(filepath, DOWNLOAD_DIR)
-                    files.append({
-                        'name': rel_path,
-                        'size': os.path.getsize(filepath),
-                        'modified': os.path.getmtime(filepath)
-                    })
-        
-        files.sort(key=lambda x: x['modified'], reverse=True)
-        return jsonify(files[:100])  
+                    files.append(
+                        {
+                            "name": rel_path,
+                            "size": os.path.getsize(filepath),
+                            "modified": os.path.getmtime(filepath),
+                        }
+                    )
+
+        files.sort(key=lambda x: x["modified"], reverse=True)
+        return jsonify(files[:100])
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 def fetch_single_album_art(item_id, media_type, app_id):
@@ -557,93 +647,95 @@ def fetch_single_album_art(item_id, media_type, app_id):
     try:
         api_base = "https://www.qobuz.com/api.json/0.2"
         endpoints = {
-            'album': f"{api_base}/album/get",
-            'track': f"{api_base}/track/get", 
-            'artist': f"{api_base}/artist/get"
+            "album": f"{api_base}/album/get",
+            "track": f"{api_base}/track/get",
+            "artist": f"{api_base}/artist/get",
         }
-        
+
         if media_type not in endpoints:
             return None
-            
-        params = {'app_id': app_id}
-        if media_type == 'album':
-            params['album_id'] = item_id
-        elif media_type == 'track':
-            params['track_id'] = item_id
-        elif media_type == 'artist':
-            params['artist_id'] = item_id
-            
+
+        params = {"app_id": app_id}
+        if media_type == "album":
+            params["album_id"] = item_id
+        elif media_type == "track":
+            params["track_id"] = item_id
+        elif media_type == "artist":
+            params["artist_id"] = item_id
+
         response = requests.get(endpoints[media_type], params=params, timeout=3)
         if response.status_code != 200:
             return None
-            
+
         data = response.json()
-        
-        #Check if we got a minimal response (no actual data)
-        if len(data) <= 2:  
+
+        # Check if we got a minimal response (no actual data)
+        if len(data) <= 2:
             logger.debug(f"Minimal data for {media_type} {item_id}: {data}")
             return None
-        
+
         image_data = None
-        
-        if media_type == 'album' and 'image' in data:
-            image_data = data['image']
-        elif media_type == 'track' and 'album' in data and 'image' in data['album']:
-            image_data = data['album']['image']
-        elif media_type == 'artist':
-            
-            for field in ['image', 'picture', 'photo', 'images', 'thumbnail', 'avatar']:
+
+        if media_type == "album" and "image" in data:
+            image_data = data["image"]
+        elif media_type == "track" and "album" in data and "image" in data["album"]:
+            image_data = data["album"]["image"]
+        elif media_type == "artist":
+            for field in ["image", "picture", "photo", "images", "thumbnail", "avatar"]:
                 if field in data:
                     image_data = data[field]
                     break
-            
+
             if not image_data:
                 logger.debug(f"No image field found for artist {item_id}")
                 return None
-        
+
         if not image_data:
             return None
-            
+
         if isinstance(image_data, dict):
-            for size in ['extralarge', 'large', 'medium', 'small', 'thumbnail']:
+            for size in ["extralarge", "large", "medium", "small", "thumbnail"]:
                 if size in image_data and image_data[size]:
                     url = image_data[size]
-                    if url and isinstance(url, str) and url.startswith('http'):
+                    if url and isinstance(url, str) and url.startswith("http"):
                         return url
-        elif isinstance(image_data, str) and image_data.startswith('http'):
+        elif isinstance(image_data, str) and image_data.startswith("http"):
             return image_data
         elif isinstance(image_data, list) and len(image_data) > 0:
             for item in image_data:
-                if isinstance(item, str) and item.startswith('http'):
+                if isinstance(item, str) and item.startswith("http"):
                     return item
-                    
+
         return None
-        
+
     except Exception as e:
         logger.error(f"Error fetching album art for {media_type} {item_id}: {e}")
         return None
 
+
 def get_qobuz_app_id():
     try:
         if os.path.exists(STREAMRIP_CONFIG):
-            with open(STREAMRIP_CONFIG, 'r') as f:
+            with open(STREAMRIP_CONFIG, "r") as f:
                 config_content = f.read()
-                #logger.debug(f"Config file content: {config_content[:200]}...")  # First 200 chars
-                
-            app_id_match = re.search(r'app_id\s*=\s*["\']?([^"\'\n]+)["\']?', config_content)
-            
+                # logger.debug(f"Config file content: {config_content[:200]}...")  # First 200 chars
+
+            app_id_match = re.search(
+                r'app_id\s*=\s*["\']?([^"\'\n]+)["\']?', config_content
+            )
+
             if app_id_match:
                 app_id = app_id_match.group(1).strip()
                 logger.debug(f"Found app_id in config: {app_id}")
                 return app_id
             else:
                 logger.debug("No app_id found in config, using fallback")
-        
-        #Return a known working app_id as fallback
+
+        # Return a known working app_id as fallback
         fallback_app_id = "950096963"
         logger.debug(f"Using fallback app_id: {fallback_app_id}")
         return fallback_app_id
-        
+
     except Exception as e:
         logger.error(f"Error extracting app_id: {e}")
         return "950096963"
@@ -651,208 +743,207 @@ def get_qobuz_app_id():
 
 def construct_url(source, media_type, item_id):
     if not item_id:
-        return ''
-    
+        return ""
+
     url_patterns = {
-        'qobuz': {
-            'album': f'https://open.qobuz.com/album/{item_id}',
-            'track': f'https://open.qobuz.com/track/{item_id}',
-            'artist': f'https://open.qobuz.com/artist/{item_id}',
-            'playlist': f'https://open.qobuz.com/playlist/{item_id}'
+        "qobuz": {
+            "album": f"https://open.qobuz.com/album/{item_id}",
+            "track": f"https://open.qobuz.com/track/{item_id}",
+            "artist": f"https://open.qobuz.com/artist/{item_id}",
+            "playlist": f"https://open.qobuz.com/playlist/{item_id}",
         },
-        'tidal': {
-            'album': f'https://tidal.com/browse/album/{item_id}',
-            'track': f'https://tidal.com/browse/track/{item_id}',
-            'artist': f'https://tidal.com/browse/artist/{item_id}',
-            'playlist': f'https://tidal.com/browse/playlist/{item_id}'
+        "tidal": {
+            "album": f"https://tidal.com/browse/album/{item_id}",
+            "track": f"https://tidal.com/browse/track/{item_id}",
+            "artist": f"https://tidal.com/browse/artist/{item_id}",
+            "playlist": f"https://tidal.com/browse/playlist/{item_id}",
         },
-        'deezer': {
-            'album': f'https://www.deezer.com/album/{item_id}',
-            'track': f'https://www.deezer.com/track/{item_id}',
-            'artist': f'https://www.deezer.com/artist/{item_id}',
-            'playlist': f'https://www.deezer.com/playlist/{item_id}'
+        "deezer": {
+            "album": f"https://www.deezer.com/album/{item_id}",
+            "track": f"https://www.deezer.com/track/{item_id}",
+            "artist": f"https://www.deezer.com/artist/{item_id}",
+            "playlist": f"https://www.deezer.com/playlist/{item_id}",
         },
-        'soundcloud': {
-            'track': f'https://soundcloud.com/{item_id}',
-            'album': f'https://soundcloud.com/{item_id}',
-            'playlist': f'https://soundcloud.com/{item_id}'
-        }
+        "soundcloud": {
+            "track": f"https://soundcloud.com/{item_id}",
+            "album": f"https://soundcloud.com/{item_id}",
+            "playlist": f"https://soundcloud.com/{item_id}",
+        },
     }
-    
+
     if source in url_patterns and media_type in url_patterns[source]:
         return url_patterns[source][media_type]
-    
-    return f'https://open.{source}.com/{media_type}/{item_id}'
 
-    
+    return f"https://open.{source}.com/{media_type}/{item_id}"
+
 
 def extract_metadata_from_url(url):
     metadata = {
-        'service': None,
-        'type': None,
-        'id': None,
-        'title': None,
-        'artist': None,
-        'album_art': None
+        "service": None,
+        "type": None,
+        "id": None,
+        "title": None,
+        "artist": None,
+        "album_art": None,
     }
-    
+
     try:
-        if 'spotify.com' in url:
-            metadata['service'] = 'spotify'
-            match = re.search(r'/(album|track|playlist|artist)/([a-zA-Z0-9]+)', url)
+        if "spotify.com" in url:
+            metadata["service"] = "spotify"
+            match = re.search(r"/(album|track|playlist|artist)/([a-zA-Z0-9]+)", url)
             if match:
-                metadata['type'] = match.group(1)
-                metadata['id'] = match.group(2)
-                #Note: Spotify requires OAuth for metadata, so we can't easily fetch it
-                
-        elif 'qobuz.com' in url:
-            metadata['service'] = 'qobuz'
-            match = re.search(r'/(album|track|playlist|artist)/([0-9]+)', url)
+                metadata["type"] = match.group(1)
+                metadata["id"] = match.group(2)
+                # Note: Spotify requires OAuth for metadata, so we can't easily fetch it
+
+        elif "qobuz.com" in url:
+            metadata["service"] = "qobuz"
+            match = re.search(r"/(album|track|playlist|artist)/([0-9]+)", url)
             if match:
-                metadata['type'] = match.group(1)
-                metadata['id'] = match.group(2)
-                metadata.update(fetch_qobuz_metadata(metadata['id'], metadata['type']))
-                
-        elif 'tidal.com' in url:
-            metadata['service'] = 'tidal'
-            match = re.search(r'/(album|track|playlist|artist)/([0-9]+)', url)
+                metadata["type"] = match.group(1)
+                metadata["id"] = match.group(2)
+                metadata.update(fetch_qobuz_metadata(metadata["id"], metadata["type"]))
+
+        elif "tidal.com" in url:
+            metadata["service"] = "tidal"
+            match = re.search(r"/(album|track|playlist|artist)/([0-9]+)", url)
             if match:
-                metadata['type'] = match.group(1)
-                metadata['id'] = match.group(2)
-                metadata['album_art'] = f"https://resources.tidal.com/images/{metadata['id']}/320x320.jpg"
-                
-        elif 'deezer.com' in url:
-            metadata['service'] = 'deezer'
-            match = re.search(r'/(album|track|playlist|artist)/([0-9]+)', url)
+                metadata["type"] = match.group(1)
+                metadata["id"] = match.group(2)
+                metadata["album_art"] = (
+                    f"https://resources.tidal.com/images/{metadata['id']}/320x320.jpg"
+                )
+
+        elif "deezer.com" in url:
+            metadata["service"] = "deezer"
+            match = re.search(r"/(album|track|playlist|artist)/([0-9]+)", url)
             if match:
-                metadata['type'] = match.group(1)
-                metadata['id'] = match.group(2)
-                metadata.update(fetch_deezer_metadata(metadata['id'], metadata['type']))
-                
+                metadata["type"] = match.group(1)
+                metadata["id"] = match.group(2)
+                metadata.update(fetch_deezer_metadata(metadata["id"], metadata["type"]))
+
     except Exception as e:
         logger.error(f"Error extracting metadata from URL: {e}")
-    
+
     return metadata
+
 
 def fetch_qobuz_metadata(item_id, item_type):
     metadata = {}
     try:
         app_id = get_qobuz_app_id()
         api_base = "https://www.qobuz.com/api.json/0.2"
-        
-        if item_type == 'album':
+
+        if item_type == "album":
             response = requests.get(
                 f"{api_base}/album/get",
-                params={'album_id': item_id, 'app_id': app_id},
-                timeout=5
+                params={"album_id": item_id, "app_id": app_id},
+                timeout=5,
             )
             if response.status_code == 200:
                 data = response.json()
-                metadata['title'] = data.get('title', '')
-                metadata['artist'] = data.get('artist', {}).get('name', '')
-                if 'image' in data:
-                    for size in ['small', 'medium', 'large', 'thumbnail']:
-                        if size in data['image']:
-                            metadata['album_art'] = data['image'][size]
+                metadata["title"] = data.get("title", "")
+                metadata["artist"] = data.get("artist", {}).get("name", "")
+                if "image" in data:
+                    for size in ["small", "medium", "large", "thumbnail"]:
+                        if size in data["image"]:
+                            metadata["album_art"] = data["image"][size]
                             break
-                            
-        elif item_type == 'track':
+
+        elif item_type == "track":
             response = requests.get(
                 f"{api_base}/track/get",
-                params={'track_id': item_id, 'app_id': app_id},
-                timeout=5
+                params={"track_id": item_id, "app_id": app_id},
+                timeout=5,
             )
             if response.status_code == 200:
                 data = response.json()
-                metadata['title'] = data.get('title', '')
-                metadata['artist'] = data.get('performer', {}).get('name', '')
-                album = data.get('album', {})
-                if 'image' in album:
-                    for size in ['small', 'medium', 'large', 'thumbnail']:
-                        if size in album['image']:
-                            metadata['album_art'] = album['image'][size]
+                metadata["title"] = data.get("title", "")
+                metadata["artist"] = data.get("performer", {}).get("name", "")
+                album = data.get("album", {})
+                if "image" in album:
+                    for size in ["small", "medium", "large", "thumbnail"]:
+                        if size in album["image"]:
+                            metadata["album_art"] = album["image"][size]
                             break
-                            
+
     except Exception as e:
         logger.error(f"Error fetching Qobuz metadata: {e}")
-    
+
     return metadata
+
 
 def fetch_deezer_metadata(item_id, item_type):
     metadata = {}
     try:
         api_base = "https://api.deezer.com"
-        
-        if item_type == 'album':
+
+        if item_type == "album":
             response = requests.get(f"{api_base}/album/{item_id}", timeout=5)
             if response.status_code == 200:
                 data = response.json()
-                metadata['title'] = data.get('title', '')
-                metadata['artist'] = data.get('artist', {}).get('name', '')
-                metadata['album_art'] = data.get('cover_medium', '')
-                
-        elif item_type == 'track':
+                metadata["title"] = data.get("title", "")
+                metadata["artist"] = data.get("artist", {}).get("name", "")
+                metadata["album_art"] = data.get("cover_medium", "")
+
+        elif item_type == "track":
             response = requests.get(f"{api_base}/track/{item_id}", timeout=5)
             if response.status_code == 200:
                 data = response.json()
-                metadata['title'] = data.get('title', '')
-                metadata['artist'] = data.get('artist', {}).get('name', '')
-                album = data.get('album', {})
-                metadata['album_art'] = album.get('cover_medium', '')
-                
+                metadata["title"] = data.get("title", "")
+                metadata["artist"] = data.get("artist", {}).get("name", "")
+                album = data.get("album", {})
+                metadata["album_art"] = album.get("cover_medium", "")
+
     except Exception as e:
         logger.error(f"Error fetching Deezer metadata: {e}")
-    
+
     return metadata
-    
-    
-@app.route('/api/download-from-url', methods=['POST'])
+
+
+@app.route("/api/download-from-url", methods=["POST"])
 def download_from_url():
     data = request.json
-    url = data.get('url')
-    quality = data.get('quality', 3)
-    
-    title = data.get('title')
-    artist = data.get('artist')
-    album_art = data.get('album_art')
-    service = data.get('service')
-    
+    url = data.get("url")
+    quality = data.get("quality", 3)
+
+    title = data.get("title")
+    artist = data.get("artist")
+    album_art = data.get("album_art")
+    service = data.get("service")
+
     if not url:
-        return jsonify({'error': 'URL required'}), 400
-    
+        return jsonify({"error": "URL required"}), 400
+
     if title and artist and service:
         metadata = {
-            'title': title,
-            'artist': artist,
-            'album_art': album_art,
-            'service': service
+            "title": title,
+            "artist": artist,
+            "album_art": album_art,
+            "service": service,
         }
     else:
         metadata = extract_metadata_from_url(url)
-    
+
     task_id = f"dl_{int(time.time() * 1000)}"
-    task = {
-        'id': task_id,
-        'url': url,
-        'quality': quality,
-        'metadata': metadata
-    }
-    
+    task = {"id": task_id, "url": url, "quality": quality, "metadata": metadata}
+
     download_queue.put(task)
-    
-    return jsonify({
-        'task_id': task_id, 
-        'status': 'queued',
-        'metadata': metadata
-    })
-    
-    
 
-        
+    return jsonify({"task_id": task_id, "status": "queued", "metadata": metadata})
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     logger.info("Starting Streamrip Web application...")
     logger.info(f"Config path: {STREAMRIP_CONFIG}")
     logger.info(f"Download directory: {DOWNLOAD_DIR}")
     logger.info(f"Max concurrent downloads: {MAX_CONCURRENT_DOWNLOADS}")
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(host="0.0.0.0", port=5000, debug=False)
+
+if __name__ == "__main__":
+    logger.info("Starting Streamrip Web application...")
+    logger.info(f"Config path: {STREAMRIP_CONFIG}")
+    logger.info(f"Download directory: {DOWNLOAD_DIR}")
+    logger.info(f"Max concurrent downloads: {MAX_CONCURRENT_DOWNLOADS}")
+    app.run(host="0.0.0.0", port=5000, debug=False)
+    app.run(host="0.0.0.0", port=5000, debug=False)
