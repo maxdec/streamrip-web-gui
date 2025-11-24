@@ -16,7 +16,7 @@
             <h1>STREAMRIP WEB</h1>
             <p class="subtitle">WEB GUI FOR STREAMRIP</p>
         </div>
-        
+
         <!-- URL Download Section -->
         <div class="section url-section">
             <div class="section-header">
@@ -27,25 +27,25 @@
                 <input type="text" id="urlInput" placeholder="Paste URL here...">
                 <select id="qualitySelect">
                     <option value="0">128kbps MP3</option>
-                    <option value="1">320kbps MP3</option>
+                    <option value="1" selected>320kbps MP3</option>
                     <option value="2">16-bit FLAC</option>
-                    <option value="3" selected>24-bit FLAC</option>
+                    <option value="3">24-bit FLAC</option>
                 </select>
                 <button id="downloadBtn" onclick="startDownload()">DOWNLOAD</button>
             </div>
         </div>
-        
+
         <!-- Search Section -->
         <div class="section search-section">
             <div class="section-header">
                 <h2>Search</h2>
                 <div class="divider"></div>
             </div>
-            
+
             <div class="search-container">
                 <div class="search-options">
                     <select id="searchSource">
-                        <option value="qobuz">Qobuz</option>
+                        <option value="qobuz" selected>Qobuz</option>
                         <option value="tidal">Tidal</option>
                         <option value="deezer">Deezer</option>
                         <option value="soundcloud">SoundCloud</option>
@@ -61,7 +61,7 @@
                     <button onclick="searchMusic()">SEARCH</button>
                 </div>
             </div>
-            
+
             <div class="search-controls">
                 <div class="pagination">
                     <button id="prevPage" onclick="changePage(-1)" disabled>PREV</button>
@@ -77,7 +77,7 @@
                 <div class="empty-state">ENTER A SEARCH QUERY ABOVE</div>
             </div>
         </div>
-        
+
         <!-- Tabs Section -->
         <div class="section tabs-section">
 		            <div class="section-header">
@@ -90,26 +90,26 @@
                 <button class="tab" onclick="switchTab('files', this)">FILES</button>
                 <button class="tab" onclick="switchTab('config', this)">CONFIG</button>
             </div>
-            
+
             <div id="activeTab" class="tab-content active">
                 <div id="activeDownloads">
                     <div class="empty-state">NO ACTIVE DOWNLOADS</div>
                 </div>
             </div>
-            
+
             <div id="historyTab" class="tab-content">
                 <div id="downloadHistory">
                     <div class="empty-state">NO DOWNLOAD HISTORY</div>
                 </div>
             </div>
-            
+
             <div id="filesTab" class="tab-content">
                 <button onclick="loadFiles()" class="secondary-btn">REFRESH FILES</button>
                 <div id="fileList" class="file-list">
                     <div class="empty-state">CLICK REFRESH TO LOAD FILES</div>
                 </div>
             </div>
-            
+
             <div id="configTab" class="tab-content">
                 <textarea id="configEditor" class="config-editor" placeholder="Loading config..."></textarea>
                 <div class="config-buttons">
@@ -119,7 +119,7 @@
             </div>
         </div>
     </div>
-    
+
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>
