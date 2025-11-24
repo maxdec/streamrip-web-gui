@@ -1,833 +1,864 @@
 /* static/css/style.css */
 
 * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 :root {
-    --bg-primary: #0a0a0a;
-    --bg-secondary: #141414;
-    --bg-tertiary: #1a1a1a;
-    --text-primary: #ffffff;
-    --text-secondary: #888888;
-    --text-tertiary: #555555;
-    --accent: #ffffff;
-    --border: #2a2a2a;
-    --success: #00ff88;
-    --error: #ff3333;
-    --warning: #ffaa00;
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #141414;
+  --bg-tertiary: #1a1a1a;
+  --text-primary: #ffffff;
+  --text-secondary: #888888;
+  --text-tertiary: #555555;
+  --accent: #ffffff;
+  --border: #2a2a2a;
+  --success: #00ff88;
+  --error: #ff3333;
+  --warning: #ffaa00;
 }
 
 body {
-    font-family: 'IBM Plex Mono', monospace;
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    min-height: 100vh;
-    padding: 20px;
-    line-height: 1.6;
+  font-family: "IBM Plex Mono", monospace;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  padding: 20px;
+  line-height: 1.6;
 }
 
 .container {
-    max-width: 1200px;
-    margin: 0 auto;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .header {
-    border-bottom: 1px solid var(--border);
-    padding: 30px 0;
-    margin-bottom: 30px;
+  border-bottom: 1px solid var(--border);
+  padding: 30px 0;
+  margin-bottom: 30px;
 }
 
 h1 {
-    font-size: 48px;
-    font-weight: 300;
-    letter-spacing: 8px;
-    margin-bottom: 10px;
+  font-size: 48px;
+  font-weight: 300;
+  letter-spacing: 8px;
+  margin-bottom: 10px;
 }
 
 .subtitle {
-    color: var(--text-secondary);
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 2px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
 }
 
-
 .input-group {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 30px;
+  display: flex;
+  gap: 10px;
+  margin-bottom: 30px;
 }
 
 input[type="text"] {
-    flex: 1;
-    padding: 12px;
-    background: var(--bg-primary);
-    border: 1px solid var(--border);
-    color: var(--text-primary);
-    font-family: inherit;
-    font-size: 14px;
-    transition: border-color 0.2s;
+  flex: 1;
+  padding: 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 14px;
+  transition: border-color 0.2s;
 }
 
 input[type="text"]:focus {
-    outline: none;
-    border-color: var(--accent);
+  outline: none;
+  border-color: var(--accent);
 }
 
 input[type="text"]::placeholder {
-    color: var(--text-tertiary);
+  color: var(--text-tertiary);
 }
 
 select {
-    padding: 12px;
-    background: var(--bg-primary);
-    border: 1px solid var(--border);
-    color: var(--text-primary);
-    font-family: inherit;
-    font-size: 14px;
-    cursor: pointer;
-    min-width: 150px;
+  padding: 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  min-width: 150px;
 }
 
 select:focus {
-    outline: none;
-    border-color: var(--accent);
+  outline: none;
+  border-color: var(--accent);
 }
 
 button {
-    padding: 12px 24px;
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    border: 1px solid var(--accent);
-    font-family: inherit;
-    font-size: 12px;
-    font-weight: 400;
-    letter-spacing: 1px;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-transform: uppercase;
+  padding: 12px 24px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--accent);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-transform: uppercase;
 }
 
 button:hover:not(:disabled) {
-    background: var(--accent);
-    color: var(--bg-primary);
+  background: var(--accent);
+  color: var(--bg-primary);
 }
 
 button:disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
 .secondary-btn {
-    border-color: var(--border);
-    color: var(--text-secondary);
+  border-color: var(--border);
+  color: var(--text-secondary);
 }
 
 .secondary-btn:hover:not(:disabled) {
-    border-color: var(--accent);
-    background: transparent;
-    color: var(--accent);
+  border-color: var(--accent);
+  background: transparent;
+  color: var(--accent);
 }
 
 .tabs {
-    display: flex;
-    gap: 0;
-    margin-bottom: 30px;
-    border-bottom: 1px solid var(--border);
-        margin-top: 10px;
+  display: flex;
+  gap: 0;
+  margin-bottom: 30px;
+  border-bottom: 1px solid var(--border);
+  margin-top: 10px;
 }
 
 .tab {
-    padding: 15px 30px;
-    background: transparent;
-    border: none;
-    border-bottom: 2px solid transparent;
-    color: var(--text-tertiary);
-    cursor: pointer;
-    font-size: 12px;
-    letter-spacing: 1px;
-    transition: all 0.2s;
-    margin-bottom: -1px;
+  padding: 15px 30px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 12px;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+  margin-bottom: -1px;
 }
 
 .tab:hover {
-    color: var(--text-secondary);
+  color: var(--text-secondary);
 }
 
 .tab.active {
-    color: var(--text-primary);
-    border-bottom-color: var(--accent);
+  color: var(--text-primary);
+  border-bottom-color: var(--accent);
 }
 
 .tab-content {
-    display: none;
-    min-height: 400px;
+  display: none;
+  min-height: 400px;
 }
 
 .tab-content.active {
-    display: block;
+  display: block;
 }
 
 .download-item {
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border);
-    padding: 20px;
-    margin-bottom: 10px;
-    position: relative;
-    transition: border-color 0.2s;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  padding: 20px;
+  margin-bottom: 10px;
+  position: relative;
+  transition: border-color 0.2s;
 }
 
 .download-item:hover {
-    border-color: var(--text-tertiary);
+  border-color: var(--text-tertiary);
 }
 
 .download-item.downloading {
-    border-left: 3px solid var(--warning);
+  border-left: 3px solid var(--warning);
 }
 
 .download-item.completed {
-    border-left: 3px solid var(--success);
+  border-left: 3px solid var(--success);
 }
 
 .download-item.failed {
-    border-left: 3px solid var(--error);
+  border-left: 3px solid var(--error);
 }
 
 .download-content {
-    display: flex;
-    gap: 15px;
-    align-items: center;
-    position: relative;
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  position: relative;
 }
 
 .download-spinner {
-    margin-left: auto;
-    margin-right: 15px;
-    flex-shrink: 0;
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 20px;
-    color: var(--accent);
+  margin-left: auto;
+  margin-right: 15px;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 20px;
+  color: var(--accent);
 }
 
 .download-spinner::after {
-    content: '⠋';
-    animation: terminal-spin 0.8s steps(10) infinite;
+  content: "⠋";
+  animation: terminal-spin 0.8s steps(10) infinite;
 }
 
 @keyframes terminal-spin {
-    0%   { content: '⠋'; }
-    10%  { content: '⠙'; }
-    20%  { content: '⠹'; }
-    30%  { content: '⠸'; }
-    40%  { content: '⠼'; }
-    50%  { content: '⠴'; }
-    60%  { content: '⠦'; }
-    70%  { content: '⠧'; }
-    80%  { content: '⠇'; }
-    90%  { content: '⠏'; }
-    100% { content: '⠋'; }
+  0% {
+    content: "⠋";
+  }
+  10% {
+    content: "⠙";
+  }
+  20% {
+    content: "⠹";
+  }
+  30% {
+    content: "⠸";
+  }
+  40% {
+    content: "⠼";
+  }
+  50% {
+    content: "⠴";
+  }
+  60% {
+    content: "⠦";
+  }
+  70% {
+    content: "⠧";
+  }
+  80% {
+    content: "⠇";
+  }
+  90% {
+    content: "⠏";
+  }
+  100% {
+    content: "⠋";
+  }
 }
 
 .download-album-art {
-    width: 60px;
-    height: 60px;
-    object-fit: cover;
-    border: 1px solid var(--border);
-    flex-shrink: 0;
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 .download-album-art.placeholder {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--bg-primary);
-    color: var(--text-tertiary);
-    font-size: 24px;
-    position: relative;
-    overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  color: var(--text-tertiary);
+  font-size: 24px;
+  position: relative;
+  overflow: hidden;
 }
 
-
 .download-title {
-    font-size: 15px;
-    color: var(--text-primary);
-    margin-bottom: 4px;
-    font-weight: 500;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  font-size: 15px;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .download-artist {
-    font-size: 13px;
-    color: var(--text-secondary);
-    margin-bottom: 8px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-
 .download-meta {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .service-badge {
-    display: inline-block;
-    padding: 2px 8px;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    border: 1px solid var(--text-tertiary);
-    color: var(--text-tertiary);
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: 1px solid var(--text-tertiary);
+  color: var(--text-tertiary);
 }
 
-
 .download-album-art.placeholder.success {
-    color: var(--success);
+  color: var(--success);
 }
 
 .download-album-art.placeholder.error {
-    color: var(--error);
+  color: var(--error);
 }
 
 .download-info {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .download-output {
-    margin-top: 15px;
-    padding: 15px;
-    background: var(--bg-primary);
-    border: 1px solid var(--border);
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    max-height: 150px;
-    overflow-y: auto;
-    display: none;
-    color: var(--text-secondary);
+  margin-top: 15px;
+  padding: 15px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  max-height: 150px;
+  overflow-y: auto;
+  display: none;
+  color: var(--text-secondary);
 }
 
 .download-item.expanded .download-output {
-    display: block;
+  display: block;
 }
 
 .toggle-output {
-    font-size: 11px;
-    color: var(--text-tertiary);
-    cursor: pointer;
-    text-decoration: none;
-    transition: color 0.2s;
-    margin-top: 10px;
-    display: inline-block;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.2s;
+  margin-top: 10px;
+  display: inline-block;
 }
 
 .toggle-output:hover {
-    color: var(--accent);
+  color: var(--accent);
 }
 
 .empty-state {
-    text-align: center;
-    padding: 60px 20px;
-    color: var(--text-tertiary);
-    font-size: 12px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
 }
 
 .status-badge {
-    display: inline-block;
-    padding: 4px 12px;
-    font-size: 10px;
-    font-weight: 400;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    border: 1px solid;
+  display: inline-block;
+  padding: 4px 12px;
+  font-size: 10px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border: 1px solid;
 }
 
-.status-badge.queued { 
-    color: var(--warning);
-    border-color: var(--warning);
+.status-badge.queued {
+  color: var(--warning);
+  border-color: var(--warning);
 }
 
-.status-badge.downloading { 
-    color: var(--warning);
-    border-color: var(--warning);
+.status-badge.downloading {
+  color: var(--warning);
+  border-color: var(--warning);
 }
 
-.status-badge.completed { 
-    color: var(--success);
-    border-color: var(--success);
+.status-badge.completed {
+  color: var(--success);
+  border-color: var(--success);
 }
 
-.status-badge.failed { 
-    color: var(--error);
-    border-color: var(--error);
+.status-badge.failed {
+  color: var(--error);
+  border-color: var(--error);
 }
 
 .config-editor {
-    width: 100%;
-    min-height: 400px;
-    padding: 20px;
-    background: var(--bg-primary);
-    border: 1px solid var(--border);
-    color: var(--text-primary);
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 13px;
-    resize: vertical;
+  width: 100%;
+  min-height: 400px;
+  padding: 20px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+  resize: vertical;
 }
 
 .config-editor:focus {
-    outline: none;
-    border-color: var(--accent);
+  outline: none;
+  border-color: var(--accent);
 }
 
 .config-buttons {
-    margin-top: 20px;
-    display: flex;
-    gap: 10px;
+  margin-top: 20px;
+  display: flex;
+  gap: 10px;
 }
 
 .file-list {
-    max-height: 500px;
-    overflow-y: auto;
-    margin-top: 20px;
+  max-height: 500px;
+  overflow-y: auto;
+  margin-top: 20px;
 }
 
 .file-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 15px;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border);
-    margin-bottom: 8px;
-    transition: border-color 0.2s;
+  display: flex;
+  justify-content: space-between;
+  padding: 15px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  margin-bottom: 8px;
+  transition: border-color 0.2s;
 }
 
 .file-item:hover {
-    border-color: var(--text-tertiary);
+  border-color: var(--text-tertiary);
 }
 
 .file-name {
-    flex: 1;
-    font-size: 13px;
-    color: var(--text-primary);
-    word-break: break-all;
-    font-family: 'IBM Plex Mono', monospace;
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-primary);
+  word-break: break-all;
+  font-family: "IBM Plex Mono", monospace;
 }
 
 .file-meta {
-    font-size: 11px;
-    color: var(--text-tertiary);
-    margin-left: 20px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-left: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 /* Search Styles */
 .search-container {
-    margin-bottom: 20px;
+  margin-bottom: 20px;
 }
 
 .search-options {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 15px;
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
 }
 
 .search-type-selector {
-    display: flex;
-    gap: 0;
-    flex: 1;
+  display: flex;
+  gap: 0;
+  flex: 1;
 }
 
 .search-type-btn {
-    padding: 10px 20px;
-    background: var(--bg-primary);
-    border: 1px solid var(--border);
-    color: var(--text-tertiary);
-    cursor: pointer;
-    transition: all 0.2s;
-    flex: 1;
+  padding: 10px 20px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.2s;
+  flex: 1;
 }
 
 .search-type-btn:not(:last-child) {
-    border-right: none;
+  border-right: none;
 }
 
 .search-type-btn.active {
-    background: var(--accent);
-    color: var(--bg-primary);
-    border-color: var(--accent);
+  background: var(--accent);
+  color: var(--bg-primary);
+  border-color: var(--accent);
 }
 
 .search-type-btn:hover:not(.active) {
-    color: var(--text-secondary);
+  color: var(--text-secondary);
 }
 
 .search-controls {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    padding: 15px;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 15px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
 }
 
 .pagination {
-    display: flex;
-    align-items: center;
-    gap: 15px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
 }
 
 .pagination button {
-    padding: 8px 16px;
-    font-size: 11px;
+  padding: 8px 16px;
+  font-size: 11px;
 }
 
 #pageInfo {
-    font-size: 12px;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .results-info {
-    font-size: 12px;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .search-results {
-    max-height: 500px;
-    overflow-y: auto;
+  max-height: 500px;
+  overflow-y: auto;
 }
 
 .search-result-item {
-    display: flex;
-    align-items: center;
-    padding: 20px;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border);
-    margin-bottom: 8px;
-    transition: all 0.2s;
-    gap: 20px;
+  display: flex;
+  align-items: center;
+  padding: 20px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  margin-bottom: 8px;
+  transition: all 0.2s;
+  gap: 20px;
 }
 
 .search-result-item:hover {
-    border-color: var(--text-tertiary);
+  border-color: var(--text-tertiary);
 }
 
 .result-album-art {
-    width: 60px;
-    height: 60px;
-    object-fit: cover;
-    background: var(--bg-primary);
-    border: 1px solid var(--border);
-    flex-shrink: 0;
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 .result-album-art.placeholder {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-tertiary);
-    font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  font-size: 24px;
 }
 
 .result-info {
-    flex: 1;
-    min-width: 0;
+  flex: 1;
+  min-width: 0;
 }
 
 .result-service {
-    display: inline-block;
-    padding: 2px 8px;
-    border: 1px solid var(--text-tertiary);
-    color: var(--text-tertiary);
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 8px;
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid var(--text-tertiary);
+  color: var(--text-tertiary);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
 }
 
 .result-title {
-    font-weight: 400;
-    color: var(--text-primary);
-    font-size: 14px;
-    margin-bottom: 4px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  font-weight: 400;
+  color: var(--text-primary);
+  font-size: 14px;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .result-artist {
-    color: var(--text-secondary);
-    font-size: 12px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result-meta {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  opacity: 0.7;
 }
 
 .result-id {
-    font-size: 10px;
-    color: var(--text-tertiary);
-    margin-top: 4px;
-    font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+  font-family: "IBM Plex Mono", monospace;
 }
 
 .result-download-btn {
-    padding: 10px 20px;
-    font-size: 11px;
-    flex-shrink: 0;
+  padding: 10px 20px;
+  font-size: 11px;
+  flex-shrink: 0;
 }
 
 /* Scrollbar Styling */
 ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--bg-primary);
+  background: var(--bg-primary);
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border: none;
+  background: var(--border);
+  border: none;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--text-tertiary);
+  background: var(--text-tertiary);
 }
 
 /* Loading animation */
 @keyframes pulse {
-    0% { opacity: 0.3; }
-    50% { opacity: 0.6; }
-    100% { opacity: 0.3; }
+  0% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 0.3;
+  }
 }
 
 .result-album-art.placeholder {
-    animation: pulse 2s infinite;
+  animation: pulse 2s infinite;
 }
 
 .result-album-art img {
-    animation: none;
+  animation: none;
 }
 .result-album-art.placeholder.loaded {
-    animation: none;
+  animation: none;
 }
 .search-section {
-    margin: 25px 0;
-    padding: 20px;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border);
+  margin: 25px 0;
+  padding: 20px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
 }
 
 .search-header {
-    display: flex;
-    align-items: center;
-    margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
 }
 
 .search-header h2 {
-    font-size: 16px;
-    font-weight: 500;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    color: var(--text-primary);
-    margin-right: 15px;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  margin-right: 15px;
 }
 
 .search-header .divider {
-    flex: 1;
-    height: 1px;
-    background: var(--border);
+  flex: 1;
+  height: 1px;
+  background: var(--border);
 }
 
 /* Add to your style.css file */
 .section {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    padding: 25px;
-    margin-bottom: 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  padding: 25px;
+  margin-bottom: 20px;
 }
 
 .section-header {
-    display: flex;
-    align-items: center;
-    margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
 }
 
 .section-header h2 {
-    font-size: 16px;
-    font-weight: 500;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    color: var(--text-primary);
-    margin-right: 15px;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  margin-right: 15px;
 }
 
 .section-header .divider {
-    flex: 1;
-    height: 1px;
-    background: var(--border);
+  flex: 1;
+  height: 1px;
+  background: var(--border);
 }
 
 .url-section .input-group {
-    margin-bottom: 0;
+  margin-bottom: 0;
 }
 
 .search-section .search-container {
-    margin-bottom: 20px;
+  margin-bottom: 20px;
 }
 
 .search-section .search-controls {
-    margin-bottom: 20px;
+  margin-bottom: 20px;
 }
 
 .tabs-section .tabs {
-    margin-bottom: 20px;
+  margin-bottom: 20px;
 }
 
 /* error etyles */
 .error-state {
-    background: rgba(255, 70, 70, 0.1);
-    border: 2px solid #ff4646;
-    border-radius: 4px;
-    padding: 20px;
-    margin: 20px 0;
-    text-align: left;
+  background: rgba(255, 70, 70, 0.1);
+  border: 2px solid #ff4646;
+  border-radius: 4px;
+  padding: 20px;
+  margin: 20px 0;
+  text-align: left;
 }
 
 .error-title {
-    font-size: 18px;
-    font-weight: 600;
-    color: #ff4646;
-    margin-bottom: 12px;
-    letter-spacing: 1px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #ff4646;
+  margin-bottom: 12px;
+  letter-spacing: 1px;
 }
 
 .error-message {
-    font-size: 14px;
-    color: #ff6b6b;
-    margin-bottom: 15px;
-    line-height: 1.6;
-    font-weight: 500;
+  font-size: 14px;
+  color: #ff6b6b;
+  margin-bottom: 15px;
+  line-height: 1.6;
+  font-weight: 500;
 }
 
 .error-details {
-    margin-top: 15px;
-    padding-top: 15px;
-    border-top: 1px solid rgba(255, 70, 70, 0.3);
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(255, 70, 70, 0.3);
 }
 
 .error-detail-line {
-    font-size: 12px;
-    color: #999;
-    margin: 5px 0;
-    font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: #999;
+  margin: 5px 0;
+  font-family: "IBM Plex Mono", monospace;
 }
 
 .error-traceback {
-    margin-top: 10px;
-    cursor: pointer;
+  margin-top: 10px;
+  cursor: pointer;
 }
 
 .error-traceback summary {
-    font-size: 12px;
-    color: #aaa;
-    padding: 8px 0;
-    user-select: none;
-    list-style: none;
-    cursor: pointer;
-    transition: color 0.2s;
+  font-size: 12px;
+  color: #aaa;
+  padding: 8px 0;
+  user-select: none;
+  list-style: none;
+  cursor: pointer;
+  transition: color 0.2s;
 }
 
 .error-traceback summary:hover {
-    color: #ff6b6b;
+  color: #ff6b6b;
 }
 
 .error-traceback summary::-webkit-details-marker {
-    display: none;
+  display: none;
 }
 
 .error-traceback[open] summary {
-    color: #ff6b6b;
-    margin-bottom: 10px;
+  color: #ff6b6b;
+  margin-bottom: 10px;
 }
 
 .error-traceback pre {
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(255, 70, 70, 0.3);
-    border-radius: 4px;
-    padding: 12px;
-    overflow-x: auto;
-    font-size: 11px;
-    line-height: 1.5;
-    color: #ddd;
-    max-height: 300px;
-    overflow-y: auto;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 70, 70, 0.3);
+  border-radius: 4px;
+  padding: 12px;
+  overflow-x: auto;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #ddd;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
 .error-traceback pre::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+  width: 8px;
+  height: 8px;
 }
 
 .error-traceback pre::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 4px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
 }
 
 .error-traceback pre::-webkit-scrollbar-thumb {
-    background: rgba(255, 70, 70, 0.5);
-    border-radius: 4px;
+  background: rgba(255, 70, 70, 0.5);
+  border-radius: 4px;
 }
 
 .error-traceback pre::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 70, 70, 0.7);
+  background: rgba(255, 70, 70, 0.7);
 }
 
 .empty-state {
-    padding: 40px 20px;
-    text-align: center;
-    color: #666;
-    font-weight: 500;
-    letter-spacing: 1px;
+  padding: 40px 20px;
+  text-align: center;
+  color: #666;
+  font-weight: 500;
+  letter-spacing: 1px;
 }
 
 @media (max-width: 768px) {
-    .error-state {
-        padding: 15px;
-    }
-    
-    .error-title {
-        font-size: 16px;
-    }
-    
-    .error-message {
-        font-size: 13px;
-    }
-    
-    .error-traceback pre {
-        font-size: 10px;
-        padding: 10px;
-    }
+  .error-state {
+    padding: 15px;
+  }
+
+  .error-title {
+    font-size: 16px;
+  }
+
+  .error-message {
+    font-size: 13px;
+  }
+
+  .error-traceback pre {
+    font-size: 10px;
+    padding: 10px;
+  }
 }
