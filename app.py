@@ -46,6 +46,41 @@ cache_lock = threading.Lock()
 streamrip_config = None
 streamrip_clients = {}
 
+# Global event loop for async operations
+async_loop = None
+async_thread = None
+
+
+def run_event_loop(loop):
+    """Run the event loop in a separate thread"""
+    asyncio.set_event_loop(loop)
+    loop.run_forever()
+
+
+def init_async_loop():
+    """Initialize a persistent event loop in a separate thread"""
+    global async_loop, async_thread
+
+    async_loop = asyncio.new_event_loop()
+    async_thread = threading.Thread(
+        target=run_event_loop, args=(async_loop,), daemon=True
+    )
+    async_thread.start()
+    logger.info("Async event loop initialized")
+
+
+def run_async(coro):
+    """Run a coroutine in the global event loop and wait for result"""
+    global async_loop
+
+    if async_loop is None:
+        init_async_loop()
+
+    # async_loop is guaranteed to be initialized here
+    assert async_loop is not None
+    future = asyncio.run_coroutine_threadsafe(coro, async_loop)
+    return future.result(timeout=60)  # 60 second timeout
+
 
 def init_streamrip():
     """Initialize streamrip config and clients"""
@@ -75,6 +110,7 @@ def init_streamrip():
 
 
 # Initialize on startup
+init_async_loop()
 init_streamrip()
 
 
@@ -514,7 +550,7 @@ def search_music():
 
     try:
         # Run the async search function
-        results = asyncio.run(search_music_async(query, search_type, source))
+        results = run_async(search_music_async(query, search_type, source))
 
         return jsonify(
             {
