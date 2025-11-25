@@ -495,7 +495,7 @@ function displayCurrentPage() {
             ${
               result.url
                 ? `
-                <button class="result-download-btn" onclick="downloadFromUrl('${result.url}')">
+                <button class="result-download-btn" onclick="downloadFromUrl('${result.url}', this)">
                     DOWNLOAD
                 </button>
             `
@@ -620,8 +620,14 @@ async function loadAlbumArtForVisibleItems() {
   }
 }
 
-async function downloadFromUrl(url) {
+async function downloadFromUrl(url, buttonElement) {
   const quality = document.getElementById("qualitySelect").value;
+
+  // Update button to show checkmark
+  if (buttonElement) {
+    buttonElement.textContent = "✓";
+    buttonElement.disabled = true;
+  }
 
   const searchResults = document.querySelectorAll(".search-result-item");
   let metadata = {};
