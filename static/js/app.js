@@ -477,6 +477,9 @@ function displayCurrentPage() {
     return;
   }
 
+  document.querySelectorAll(".search-controls").forEach((element) => {
+    element.style = { display: "block" };
+  });
   resultsDiv.innerHTML = pageResults
     .map(
       (result) => `
@@ -510,13 +513,22 @@ function displayCurrentPage() {
   updatePaginationControls();
   loadAlbumArtForVisibleItems();
 }
+
 function updatePaginationControls() {
   const totalPages = Math.ceil(totalResults / itemsPerPage);
-  document.getElementById("pageInfo").textContent = `Page ${currentPage} of ${totalPages}`;
-  document.getElementById("resultsCount").textContent = `${totalResults} results`;
+  document.querySelectorAll(".pageInfo").forEach((element) => {
+    element.textContent = `Page ${currentPage} of ${totalPages}`;
+  });
+  document.querySelectorAll(".resultsCount").forEach((element) => {
+    element.textContent = `${totalResults} results`;
+  });
 
-  document.getElementById("prevPage").disabled = currentPage <= 1;
-  document.getElementById("nextPage").disabled = currentPage >= totalPages;
+  document.querySelectorAll(".prevPage").forEach((element) => {
+    element.disabled = currentPage <= 1;
+  });
+  document.querySelectorAll(".nextPage").forEach((element) => {
+    element.disabled = currentPage >= totalPages;
+  });
 }
 
 function changePage(direction) {
