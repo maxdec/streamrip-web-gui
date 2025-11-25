@@ -10,30 +10,31 @@ RUN apt-get update && apt-get install -y \
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-# Create a non-root user
+# Create a non-root user with home directory
 RUN groupadd -g 1000 appuser && \
-    useradd -r -u 1000 -g appuser appuser
+    useradd -r -u 1000 -g appuser -m -d /home/appuser appuser
+
+# Create necessary directories with proper ownership
+RUN mkdir -p /downloads /logs /config/streamrip /app && \
+    chown -R 1000:1000 /downloads /logs /config /app
 
 # Set working directory
 WORKDIR /app
 
-# Copy dependency files
-COPY pyproject.toml .python-version ./
+# Copy dependency files with correct ownership
+COPY --chown=1000:1000 pyproject.toml .python-version ./
+
+# Switch to non-root user for installation
+USER 1000:1000
 
 # Create virtual environment and install dependencies
+# UV will use /home/appuser/.cache which now exists and is owned by appuser
 RUN uv venv && uv pip install -e .
 
-# Copy application files
-COPY app.py /app/
-COPY templates /app/templates/
-COPY static /app/static/
-
-# Create necessary directories with proper ownership
-RUN mkdir -p /downloads /logs /config/streamrip && \
-    chown -R 1000:1000 /downloads /logs /config /app
-
-# Switch to non-root user
-USER 1000:1000
+# Copy application files with correct ownership
+COPY --chown=1000:1000 app.py /app/
+COPY --chown=1000:1000 templates /app/templates/
+COPY --chown=1000:1000 static /app/static/
 
 # Expose port
 EXPOSE 5000
