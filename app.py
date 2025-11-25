@@ -31,8 +31,8 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-STREAMRIP_CONFIG = os.environ.get("STREAMRIP_CONFIG", "/config/config.toml")
-DOWNLOAD_DIR = os.environ.get("DOWNLOAD_DIR", "/music")
+STREAMRIP_CONFIG = os.environ.get("STREAMRIP_CONFIG", "./config/config.toml")
+DOWNLOAD_DIR = os.environ.get("DOWNLOAD_DIR", "./music")
 MAX_CONCURRENT_DOWNLOADS = int(os.environ.get("MAX_CONCURRENT_DOWNLOADS", "2"))
 
 download_queue = queue.Queue()
