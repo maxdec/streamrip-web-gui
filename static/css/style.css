@@ -531,10 +531,10 @@ button:disabled {
   letter-spacing: 0.5px;
 }
 
-.search-results {
+/*.search-results {
   max-height: 500px;
   overflow-y: auto;
-}
+}*/
 
 .search-result-item {
   display: flex;
