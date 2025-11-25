@@ -1,22 +1,22 @@
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    git \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+  ffmpeg \
+  git \
+  curl \
+  && rm -rf /var/lib/apt/lists/*
 
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 # Create a non-root user with home directory
 RUN groupadd -g 1000 appuser && \
-    useradd -r -u 1000 -g appuser -m -d /home/appuser appuser
+  useradd -r -u 1000 -g appuser -m -d /home/appuser appuser
 
 # Create necessary directories with proper ownership
 RUN mkdir -p /downloads /logs /config/streamrip /app && \
-    chown -R 1000:1000 /downloads /logs /config /app
+  chown -R 1000:1000 /downloads /logs /config /app
 
 # Set working directory
 WORKDIR /app
@@ -41,7 +41,7 @@ EXPOSE 5000
 
 # Set environment to use the venv
 ENV PATH="/app/.venv/bin:$PATH" \
-    PYTHONUNBUFFERED=1
+  PYTHONUNBUFFERED=1
 
 # Run with gunicorn
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--worker-class", "gevent", "--workers", "2", "--timeout", "60", "app:app"]
